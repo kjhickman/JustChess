@@ -1,0 +1,5 @@
+std = "lua51+wow"
+
+[lints]
+global_usage = "deny"
+high_cyclomatic_complexity = "warn"

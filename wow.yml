@@ -1,0 +1,27 @@
+globals:
+  bit.band:
+    args:
+      - type: number
+      - required: false
+        type: "..."
+    must_use: true
+  bit.bnot:
+    args:
+      - type: number
+    must_use: true
+  bit.bor:
+    args:
+      - type: number
+      - required: false
+        type: "..."
+    must_use: true
+  bit.lshift:
+    args:
+      - type: number
+      - type: number
+    must_use: true
+  bit.rshift:
+    args:
+      - type: number
+      - type: number
+    must_use: true

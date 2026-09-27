@@ -1,0 +1,17 @@
+## Interface: 16001
+## Title: JustChess
+## Notes: Play chess directly in WoW.
+## Author: netward
+## Version: @project-version@
+
+src/Core/Bootstrap.lua
+src/Core/Constants.lua
+src/Core/Square.lua
+src/Core/Bitboard.lua
+src/Core/Move.lua
+src/Core/Position.lua
+src/Core/MoveExecutor.lua
+src/Core/AttackTables.lua
+src/Core/Attacks.lua
+src/Core/MoveGeneration.lua
+src/Core/Game.lua
