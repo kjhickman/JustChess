@@ -1,16 +1,15 @@
 local _, addon = ...
 
-local JustChess = assert(addon.JustChess, "JustChess bootstrap must load first")
 local Internal = assert(addon.JustChessInternal, "JustChess bootstrap must load first")
-local CastlingRights = assert(JustChess.CastlingRights, "JustChess constants must load first")
-local Color = assert(JustChess.Color, "JustChess constants must load first")
+local CastlingRights = assert(Internal.CastlingRights, "JustChess constants must load first")
+local Color = assert(Internal.Color, "JustChess constants must load first")
 local Move = assert(Internal.Move, "JustChess move must load first")
-local Piece = assert(JustChess.Piece, "JustChess constants must load first")
-local PieceKind = assert(JustChess.PieceKind, "JustChess constants must load first")
+local Piece = assert(Internal.Piece, "JustChess constants must load first")
+local PieceKind = assert(Internal.PieceKind, "JustChess constants must load first")
 local Position = assert(Internal.Position, "JustChess position must load first")
-local Promotion = assert(JustChess.Promotion, "JustChess constants must load first")
-local SpecialMove = assert(JustChess.SpecialMove, "JustChess constants must load first")
-local Square = assert(JustChess.Square, "JustChess constants must load first")
+local Promotion = assert(Internal.Promotion, "JustChess constants must load first")
+local SpecialMove = assert(Internal.SpecialMove, "JustChess constants must load first")
+local Square = assert(Internal.Square, "JustChess constants must load first")
 local band = bit.band
 local bnot = bit.bnot
 
@@ -88,21 +87,6 @@ function MoveExecutor.new()
         history = {},
         count = 0,
     }
-end
-
-function MoveExecutor.clear(executor)
-    executor.count = 0
-end
-
-function MoveExecutor.move_count(executor)
-    return executor.count
-end
-
-function MoveExecutor.move_at(executor, index)
-    if index < 1 or index > executor.count then
-        return nil
-    end
-    return executor.history[index].move
 end
 
 function MoveExecutor.make(executor, position, move)

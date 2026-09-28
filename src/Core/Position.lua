@@ -1,12 +1,11 @@
 local _, addon = ...
 
-local JustChess = assert(addon.JustChess, "JustChess bootstrap must load first")
 local Internal = assert(addon.JustChessInternal, "JustChess bootstrap must load first")
 local Bitboard = assert(Internal.Bitboard, "JustChess bitboard must load first")
-local CastlingRights = assert(JustChess.CastlingRights, "JustChess constants must load first")
-local Color = assert(JustChess.Color, "JustChess constants must load first")
-local Piece = assert(JustChess.Piece, "JustChess constants must load first")
-local Square = assert(JustChess.Square, "JustChess constants must load first")
+local CastlingRights = assert(Internal.CastlingRights, "JustChess constants must load first")
+local Color = assert(Internal.Color, "JustChess constants must load first")
+local Piece = assert(Internal.Piece, "JustChess constants must load first")
+local Square = assert(Internal.Square, "JustChess constants must load first")
 
 local Position = {}
 

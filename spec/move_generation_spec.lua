@@ -41,7 +41,7 @@ describe("legal move generation", function()
             local moves = {}
             local count = MoveGeneration.write_legal_moves(position, moves, MoveGeneration.new_context())
             for move_index = 1, count do
-                assert.not_equal(JustChess.SpecialMove.SHORT_CASTLE, JustChess.Move.special_type(moves[move_index]))
+                assert.not_equal(Internal.SpecialMove.SHORT_CASTLE, Internal.Move.special_type(moves[move_index]))
             end
         end
     end)

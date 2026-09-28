@@ -23,7 +23,8 @@ function M.parse(fen, namespace)
     assert(#fields == 6, "FEN must contain six fields")
 
     local JustChess = namespace.JustChess
-    local Position = namespace.JustChessInternal.Position
+    local Internal = namespace.JustChessInternal
+    local Position = Internal.Position
     local position = Position.new_empty()
     local rank = 8
     local file = 1
@@ -59,16 +60,16 @@ function M.parse(fen, namespace)
     local rights = 0
     if fields[3] ~= "-" then
         if fields[3]:find("K", 1, true) then
-            rights = rights + JustChess.CastlingRights.WHITE_KINGSIDE
+            rights = rights + Internal.CastlingRights.WHITE_KINGSIDE
         end
         if fields[3]:find("Q", 1, true) then
-            rights = rights + JustChess.CastlingRights.WHITE_QUEENSIDE
+            rights = rights + Internal.CastlingRights.WHITE_QUEENSIDE
         end
         if fields[3]:find("k", 1, true) then
-            rights = rights + JustChess.CastlingRights.BLACK_KINGSIDE
+            rights = rights + Internal.CastlingRights.BLACK_KINGSIDE
         end
         if fields[3]:find("q", 1, true) then
-            rights = rights + JustChess.CastlingRights.BLACK_QUEENSIDE
+            rights = rights + Internal.CastlingRights.BLACK_QUEENSIDE
         end
     end
     position.castling_rights = rights

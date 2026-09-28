@@ -2,11 +2,11 @@ local _, addon = ...
 
 local JustChess = assert(addon.JustChess, "JustChess bootstrap must load first")
 local Internal = assert(addon.JustChessInternal, "JustChess bootstrap must load first")
-local Color = assert(JustChess.Color, "JustChess constants must load first")
-local Piece = assert(JustChess.Piece, "JustChess constants must load first")
-local Promotion = assert(JustChess.Promotion, "JustChess constants must load first")
-local SpecialMove = assert(JustChess.SpecialMove, "JustChess constants must load first")
-local Square = assert(JustChess.Square, "JustChess constants must load first")
+local Color = assert(Internal.Color, "JustChess constants must load first")
+local Piece = assert(Internal.Piece, "JustChess constants must load first")
+local Promotion = assert(Internal.Promotion, "JustChess constants must load first")
+local SpecialMove = assert(Internal.SpecialMove, "JustChess constants must load first")
+local Square = assert(Internal.Square, "JustChess constants must load first")
 local floor = math.floor
 
 local TO_FACTOR = 64
@@ -105,13 +105,15 @@ function PackedMove.double_pawn_push(from, to, moving_piece)
     return pack(from, to, Promotion.NONE, moving_piece, Piece.NONE, SpecialMove.DOUBLE_PAWN_PUSH)
 end
 
-PublicMove.from_square = from_square
 PublicMove.to_square = to_square
-PublicMove.promotion = promotion
-PublicMove.piece = piece
-PublicMove.captured_piece = captured_piece
 PublicMove.is_capture = is_capture
-PublicMove.special_type = special_type
+function PublicMove.promotion(move)
+    local value = promotion(move)
+    if value == Promotion.NONE then
+        return nil
+    end
+    return value
+end
 
 PackedMove.pack = pack
 PackedMove.from_square = from_square

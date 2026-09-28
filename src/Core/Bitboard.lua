@@ -1,7 +1,7 @@
 local _, addon = ...
 
 local Internal = assert(addon.JustChessInternal, "JustChess bootstrap must load first")
-local Square = assert(addon.JustChess.Square, "JustChess constants must load first")
+local Square = assert(Internal.Square, "JustChess constants must load first")
 local bitlib = bit
 local band = bitlib.band
 local bnot = bitlib.bnot

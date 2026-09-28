@@ -131,12 +131,34 @@ for rank = 1, 8 do
 end
 
 JustChess.Color = Color
-JustChess.PieceKind = PieceKind
-JustChess.Piece = Piece
-JustChess.Promotion = Promotion
-JustChess.SpecialMove = SpecialMove
-JustChess.CastlingRights = CastlingRights
+JustChess.Piece = {
+    WHITE_PAWN = Piece.WHITE_PAWN,
+    WHITE_KNIGHT = Piece.WHITE_KNIGHT,
+    WHITE_BISHOP = Piece.WHITE_BISHOP,
+    WHITE_ROOK = Piece.WHITE_ROOK,
+    WHITE_QUEEN = Piece.WHITE_QUEEN,
+    WHITE_KING = Piece.WHITE_KING,
+    BLACK_PAWN = Piece.BLACK_PAWN,
+    BLACK_KNIGHT = Piece.BLACK_KNIGHT,
+    BLACK_BISHOP = Piece.BLACK_BISHOP,
+    BLACK_ROOK = Piece.BLACK_ROOK,
+    BLACK_QUEEN = Piece.BLACK_QUEEN,
+    BLACK_KING = Piece.BLACK_KING,
+}
+JustChess.Promotion = {
+    KNIGHT = Promotion.KNIGHT,
+    BISHOP = Promotion.BISHOP,
+    ROOK = Promotion.ROOK,
+    QUEEN = Promotion.QUEEN,
+}
 JustChess.Square = Square
 
+Internal.Color = Color
+Internal.PieceKind = PieceKind
+Internal.Piece = Piece
+Internal.Promotion = Promotion
+Internal.SpecialMove = SpecialMove
+Internal.CastlingRights = CastlingRights
+Internal.Square = Square
 Internal.piece_color = piece_color
 Internal.piece_kind = piece_kind

@@ -1,18 +1,17 @@
 local _, addon = ...
 
-local JustChess = assert(addon.JustChess, "JustChess bootstrap must load first")
 local Internal = assert(addon.JustChessInternal, "JustChess bootstrap must load first")
 local Attacks = assert(Internal.Attacks, "JustChess attacks must load first")
 local AttackTables = assert(Internal.AttackTables, "JustChess attack tables must load first")
 local Bitboard = assert(Internal.Bitboard, "JustChess bitboard must load first")
-local CastlingRights = assert(JustChess.CastlingRights, "JustChess constants must load first")
-local Color = assert(JustChess.Color, "JustChess constants must load first")
+local CastlingRights = assert(Internal.CastlingRights, "JustChess constants must load first")
+local Color = assert(Internal.Color, "JustChess constants must load first")
 local Move = assert(Internal.Move, "JustChess move must load first")
-local Piece = assert(JustChess.Piece, "JustChess constants must load first")
-local PieceKind = assert(JustChess.PieceKind, "JustChess constants must load first")
-local Promotion = assert(JustChess.Promotion, "JustChess constants must load first")
-local SpecialMove = assert(JustChess.SpecialMove, "JustChess constants must load first")
-local Square = assert(JustChess.Square, "JustChess constants must load first")
+local Piece = assert(Internal.Piece, "JustChess constants must load first")
+local PieceKind = assert(Internal.PieceKind, "JustChess constants must load first")
+local Promotion = assert(Internal.Promotion, "JustChess constants must load first")
+local SpecialMove = assert(Internal.SpecialMove, "JustChess constants must load first")
+local Square = assert(Internal.Square, "JustChess constants must load first")
 local abs = math.abs
 local band = bit.band
 local bnot = bit.bnot
@@ -364,10 +363,6 @@ local function write_moves(position, output, state)
         true
     )
     return append_castles(position, output, count, color, state)
-end
-
-function MoveGeneration.write_pseudo_legal_moves(position, output)
-    return write_moves(position, output, nil)
 end
 
 local function set_square_words(board, square)

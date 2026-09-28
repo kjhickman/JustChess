@@ -129,6 +129,6 @@ describe("production loading", function()
 
         local game = namespace.JustChess.new_game()
         game._position.side_to_move = namespace.JustChess.Color.BLACK
-        assert.equal(20, #game:get_legal_moves())
+        assert.equal(2, #game:get_legal_moves(namespace.JustChess.Square.E7))
     end)
 end)

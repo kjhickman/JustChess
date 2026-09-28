@@ -7,8 +7,8 @@ local Move = assert(Internal.Move, "JustChess move must load first")
 local MoveExecutor = assert(Internal.MoveExecutor, "JustChess move executor must load first")
 local MoveGeneration = assert(Internal.MoveGeneration, "JustChess move generation must load first")
 local Position = assert(Internal.Position, "JustChess position must load first")
-local Promotion = assert(JustChess.Promotion, "JustChess constants must load first")
-local Square = assert(JustChess.Square, "JustChess constants must load first")
+local Promotion = assert(Internal.Promotion, "JustChess constants must load first")
+local Square = assert(Internal.Square, "JustChess constants must load first")
 
 local Game = {}
 Game.__index = Game
@@ -19,6 +19,19 @@ local valid_promotion = {
     [Promotion.ROOK] = true,
     [Promotion.QUEEN] = true,
 }
+
+local function write_legal_moves(game, output, from_square)
+    local count = MoveGeneration.write_legal_moves(game._position, output, game._generation_context)
+    local filtered_count = 0
+    for index = 1, count do
+        local move = output[index]
+        if Move.from_square(move) == from_square then
+            filtered_count = filtered_count + 1
+            output[filtered_count] = move
+        end
+    end
+    return filtered_count
+end
 
 local function find_legal_move(game, from, to, promotion)
     if not Square.is_valid(from) then
@@ -32,7 +45,7 @@ local function find_legal_move(game, from, to, promotion)
     end
 
     local moves = game._move_buffer
-    local count = Game.write_legal_moves(game, moves, from)
+    local count = write_legal_moves(game, moves, from)
     local promotion_required = false
     for index = 1, count do
         local move = moves[index]
@@ -56,39 +69,14 @@ local function find_legal_move(game, from, to, promotion)
     return nil, "move is not legal"
 end
 
-function Game.write_legal_moves(game, output, from_square)
-    assert(type(output) == "table", "output must be a table")
-    if from_square ~= nil then
-        assert(Square.is_valid(from_square), "invalid source square")
-    end
-
-    local count = MoveGeneration.write_legal_moves(game._position, output, game._generation_context)
-    if from_square == nil then
-        return count
-    end
-
-    local filtered_count = 0
-    for index = 1, count do
-        local move = output[index]
-        if Move.from_square(move) == from_square then
-            filtered_count = filtered_count + 1
-            output[filtered_count] = move
-        end
-    end
-    return filtered_count
-end
-
 function Game.get_legal_moves(game, from_square)
+    assert(Square.is_valid(from_square), "invalid source square")
     local moves = {}
-    local count = Game.write_legal_moves(game, moves, from_square)
+    local count = write_legal_moves(game, moves, from_square)
     for index = count + 1, #moves do
         moves[index] = nil
     end
     return moves
-end
-
-function Game.find_legal_move(game, from, to, promotion)
-    return find_legal_move(game, from, to, promotion)
 end
 
 function Game.try_make_move(game, from, to, promotion)
@@ -101,18 +89,11 @@ function Game.try_make_move(game, from, to, promotion)
     return true
 end
 
-function Game.make_move_unchecked(game, move)
-    assert(type(move) == "number", "move must be a packed move")
-    MoveExecutor.make(game._executor, game._position, move)
-end
-
 function Game.undo_move(game)
-    return MoveExecutor.undo(game._executor, game._position)
-end
-
-function Game.reset(game)
-    Position.reset(game._position)
-    MoveExecutor.clear(game._executor)
+    if MoveExecutor.undo(game._executor, game._position) == nil then
+        return nil
+    end
+    return true
 end
 
 function Game.piece_at(game, square)
@@ -123,12 +104,8 @@ function Game.side_to_move(game)
     return game._position.side_to_move
 end
 
-function Game.is_in_check(game)
-    return Attacks.is_in_check(game._position, game._position.side_to_move)
-end
-
 function Game.status(game)
-    local in_check = Game.is_in_check(game)
+    local in_check = Attacks.is_in_check(game._position, game._position.side_to_move)
     local count = MoveGeneration.write_legal_moves(game._position, game._move_buffer, game._generation_context)
     if count == 0 then
         return in_check and "checkmate" or "stalemate"
@@ -136,15 +113,7 @@ function Game.status(game)
     return in_check and "check" or "ongoing"
 end
 
-function Game.move_count(game)
-    return MoveExecutor.move_count(game._executor)
-end
-
-function Game.move_at(game, index)
-    return MoveExecutor.move_at(game._executor, index)
-end
-
-function Game.new(position)
+local function new_game(position)
     return setmetatable({
         _position = position or Position.new(),
         _executor = MoveExecutor.new(),
@@ -154,7 +123,7 @@ function Game.new(position)
 end
 
 function JustChess.new_game()
-    return Game.new()
+    return new_game()
 end
 
-Internal.Game = Game
+Internal.Game = { new = new_game }

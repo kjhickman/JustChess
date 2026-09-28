@@ -159,13 +159,13 @@ describe("move execution", function()
                     end
 
                     assert_round_trip(position, move, function(changed)
-                        local expected_piece = JustChess.Piece.from_color_kind(
+                        local expected_piece = Internal.Piece.from_color_kind(
                             case.color,
                             ({
-                                [JustChess.Promotion.KNIGHT] = JustChess.PieceKind.KNIGHT,
-                                [JustChess.Promotion.BISHOP] = JustChess.PieceKind.BISHOP,
-                                [JustChess.Promotion.ROOK] = JustChess.PieceKind.ROOK,
-                                [JustChess.Promotion.QUEEN] = JustChess.PieceKind.QUEEN,
+                                [JustChess.Promotion.KNIGHT] = Internal.PieceKind.KNIGHT,
+                                [JustChess.Promotion.BISHOP] = Internal.PieceKind.BISHOP,
+                                [JustChess.Promotion.ROOK] = Internal.PieceKind.ROOK,
+                                [JustChess.Promotion.QUEEN] = Internal.PieceKind.QUEEN,
                             })[promotion]
                         )
                         assert.equal(expected_piece, changed.board[case.to])
@@ -233,7 +233,7 @@ describe("move execution", function()
             local position = empty_position(case.color)
             Position.set_piece(position, case.king_from, case.king)
             Position.set_piece(position, case.rook_from, case.rook)
-            position.castling_rights = JustChess.CastlingRights.ALL
+            position.castling_rights = Internal.CastlingRights.ALL
 
             assert_round_trip(position, case.move(), function(changed)
                 assert.equal(case.king, changed.board[case.king_to])
@@ -252,7 +252,7 @@ describe("move execution", function()
         Position.set_piece(position, JustChess.Square.H1, JustChess.Piece.WHITE_ROOK)
         Position.set_piece(position, JustChess.Square.A8, JustChess.Piece.BLACK_ROOK)
         Position.set_piece(position, JustChess.Square.H8, JustChess.Piece.BLACK_ROOK)
-        position.castling_rights = JustChess.CastlingRights.ALL
+        position.castling_rights = Internal.CastlingRights.ALL
 
         MoveExecutor.make(
             executor,
@@ -260,7 +260,7 @@ describe("move execution", function()
             Move.quiet(JustChess.Square.E1, JustChess.Square.E2, JustChess.Piece.WHITE_KING)
         )
         assert.equal(
-            JustChess.CastlingRights.BLACK_KINGSIDE + JustChess.CastlingRights.BLACK_QUEENSIDE,
+            Internal.CastlingRights.BLACK_KINGSIDE + Internal.CastlingRights.BLACK_QUEENSIDE,
             position.castling_rights
         )
         MoveExecutor.undo(executor, position)
@@ -276,7 +276,7 @@ describe("move execution", function()
             )
         )
         assert.equal(
-            JustChess.CastlingRights.WHITE_KINGSIDE + JustChess.CastlingRights.BLACK_KINGSIDE,
+            Internal.CastlingRights.WHITE_KINGSIDE + Internal.CastlingRights.BLACK_KINGSIDE,
             position.castling_rights
         )
         MoveExecutor.undo(executor, position)
@@ -292,9 +292,9 @@ describe("move execution", function()
 
         MoveExecutor.make(executor, position, first)
         MoveExecutor.make(executor, position, second)
-        assert.equal(2, MoveExecutor.move_count(executor))
-        assert.equal(first, MoveExecutor.move_at(executor, 1))
-        assert.equal(second, MoveExecutor.move_at(executor, 2))
+        assert.equal(2, executor.count)
+        assert.equal(first, executor.history[1].move)
+        assert.equal(second, executor.history[2].move)
         assert.equal(second, MoveExecutor.undo(executor, position))
         assert.equal(first, MoveExecutor.undo(executor, position))
         assert.same(expected, position)
@@ -304,8 +304,6 @@ describe("move execution", function()
         MoveExecutor.undo(executor, position)
         MoveExecutor.make(executor, position, first)
         assert.equal(first_record, executor.history[1])
-        MoveExecutor.clear(executor)
-        assert.equal(0, MoveExecutor.move_count(executor))
     end)
 
     it("allocates no garbage after move history is warm", function()
