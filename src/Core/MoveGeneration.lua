@@ -47,20 +47,15 @@ local function append_target_moves(
         local isolated = band(targets_lo, -targets_lo)
         local to = lsb_index[isolated] + 1
         local captured = position.board[to]
-        if
-            captured == nil
-            or (Internal.piece_color[captured] ~= color and Internal.piece_kind[captured] ~= PieceKind.KING)
-        then
-            local legal = state == nil
-                or (king_moves and king_move_is_safe(position, color, from, to))
-                or (not king_moves and ordinary_move_is_legal(state, pinned, from, to))
-            if legal then
-                count = count + 1
-                if captured == nil then
-                    output[count] = Move.quiet(from, to, moving_piece)
-                else
-                    output[count] = Move.capture(from, to, moving_piece, captured)
-                end
+        local legal = state == nil
+            or (king_moves and king_move_is_safe(position, color, from, to))
+            or (not king_moves and ordinary_move_is_legal(state, pinned, from, to))
+        if legal then
+            count = count + 1
+            if captured == nil then
+                output[count] = Move.quiet(from, to, moving_piece)
+            else
+                output[count] = Move.capture(from, to, moving_piece, captured)
             end
         end
         targets_lo = band(targets_lo, targets_lo - 1)
@@ -70,20 +65,15 @@ local function append_target_moves(
         local isolated = band(targets_hi, -targets_hi)
         local to = lsb_index[isolated] + 33
         local captured = position.board[to]
-        if
-            captured == nil
-            or (Internal.piece_color[captured] ~= color and Internal.piece_kind[captured] ~= PieceKind.KING)
-        then
-            local legal = state == nil
-                or (king_moves and king_move_is_safe(position, color, from, to))
-                or (not king_moves and ordinary_move_is_legal(state, pinned, from, to))
-            if legal then
-                count = count + 1
-                if captured == nil then
-                    output[count] = Move.quiet(from, to, moving_piece)
-                else
-                    output[count] = Move.capture(from, to, moving_piece, captured)
-                end
+        local legal = state == nil
+            or (king_moves and king_move_is_safe(position, color, from, to))
+            or (not king_moves and ordinary_move_is_legal(state, pinned, from, to))
+        if legal then
+            count = count + 1
+            if captured == nil then
+                output[count] = Move.quiet(from, to, moving_piece)
+            else
+                output[count] = Move.capture(from, to, moving_piece, captured)
             end
         end
         targets_hi = band(targets_hi, targets_hi - 1)
@@ -197,7 +187,19 @@ local function append_pawn_moves(position, output, count, color, state)
     return count
 end
 
-local function append_leaper_moves(position, output, count, color, piece, attacks_lo, attacks_hi, state, king_moves)
+local function append_leaper_moves(
+    position,
+    output,
+    count,
+    color,
+    piece,
+    attacks_lo,
+    attacks_hi,
+    target_mask_lo,
+    target_mask_hi,
+    state,
+    king_moves
+)
     local pieces = position.pieces[piece]
     local pieces_lo = pieces.lo
     local pieces_hi = pieces.hi
@@ -212,8 +214,8 @@ local function append_leaper_moves(position, output, count, color, piece, attack
             color,
             from,
             piece,
-            attacks_lo[from],
-            attacks_hi[from],
+            band(attacks_lo[from], target_mask_lo),
+            band(attacks_hi[from], target_mask_hi),
             state,
             king_moves
         )
@@ -229,8 +231,8 @@ local function append_leaper_moves(position, output, count, color, piece, attack
             color,
             from,
             piece,
-            attacks_lo[from],
-            attacks_hi[from],
+            band(attacks_lo[from], target_mask_lo),
+            band(attacks_hi[from], target_mask_hi),
             state,
             king_moves
         )
@@ -240,7 +242,7 @@ local function append_leaper_moves(position, output, count, color, piece, attack
     return count
 end
 
-local function append_slider_moves(position, output, count, color, piece, attack_function, state)
+local function append_slider_moves(position, output, count, color, piece, attack_function, dest_lo, dest_hi, state)
     local pieces = position.pieces[piece]
     local pieces_lo = pieces.lo
     local pieces_hi = pieces.hi
@@ -251,6 +253,8 @@ local function append_slider_moves(position, output, count, color, piece, attack
         local isolated = band(pieces_lo, -pieces_lo)
         local from = lsb_index[isolated] + 1
         local targets_lo, targets_hi = attack_function(from, occupied_lo, occupied_hi)
+        targets_lo = band(targets_lo, dest_lo)
+        targets_hi = band(targets_hi, dest_hi)
         count = append_target_moves(output, count, position, color, from, piece, targets_lo, targets_hi, state, false)
         pieces_lo = band(pieces_lo, pieces_lo - 1)
     end
@@ -258,6 +262,8 @@ local function append_slider_moves(position, output, count, color, piece, attack
         local isolated = band(pieces_hi, -pieces_hi)
         local from = lsb_index[isolated] + 33
         local targets_lo, targets_hi = attack_function(from, occupied_lo, occupied_hi)
+        targets_lo = band(targets_lo, dest_lo)
+        targets_hi = band(targets_hi, dest_hi)
         count = append_target_moves(output, count, position, color, from, piece, targets_lo, targets_hi, state, false)
         pieces_hi = band(pieces_hi, pieces_hi - 1)
     end
@@ -323,6 +329,15 @@ end
 local function write_moves(position, output, state)
     local color = position.side_to_move
     local offset = color == Color.WHITE and 0 or 6
+    local enemy_pawn = position.pieces[Piece.BLACK_PAWN - offset]
+    local enemy_knight = position.pieces[Piece.BLACK_KNIGHT - offset]
+    local enemy_bishop = position.pieces[Piece.BLACK_BISHOP - offset]
+    local enemy_rook = position.pieces[Piece.BLACK_ROOK - offset]
+    local enemy_queen = position.pieces[Piece.BLACK_QUEEN - offset]
+    local target_mask_lo =
+        bor(bnot(position.occupied.lo), enemy_pawn.lo, enemy_knight.lo, enemy_bishop.lo, enemy_rook.lo, enemy_queen.lo)
+    local target_mask_hi =
+        bor(bnot(position.occupied.hi), enemy_pawn.hi, enemy_knight.hi, enemy_bishop.hi, enemy_rook.hi, enemy_queen.hi)
     local count = 0
     if state == nil or state.check_count < 2 then
         count = append_pawn_moves(position, output, count, color, state)
@@ -334,6 +349,8 @@ local function write_moves(position, output, state)
             Piece.WHITE_KNIGHT + offset,
             AttackTables.knight_lo,
             AttackTables.knight_hi,
+            target_mask_lo,
+            target_mask_hi,
             state,
             false
         )
@@ -344,12 +361,32 @@ local function write_moves(position, output, state)
             color,
             Piece.WHITE_BISHOP + offset,
             Attacks.bishop_words,
+            target_mask_lo,
+            target_mask_hi,
             state
         )
-        count =
-            append_slider_moves(position, output, count, color, Piece.WHITE_ROOK + offset, Attacks.rook_words, state)
-        count =
-            append_slider_moves(position, output, count, color, Piece.WHITE_QUEEN + offset, Attacks.queen_words, state)
+        count = append_slider_moves(
+            position,
+            output,
+            count,
+            color,
+            Piece.WHITE_ROOK + offset,
+            Attacks.rook_words,
+            target_mask_lo,
+            target_mask_hi,
+            state
+        )
+        count = append_slider_moves(
+            position,
+            output,
+            count,
+            color,
+            Piece.WHITE_QUEEN + offset,
+            Attacks.queen_words,
+            target_mask_lo,
+            target_mask_hi,
+            state
+        )
     end
     count = append_leaper_moves(
         position,
@@ -359,6 +396,8 @@ local function write_moves(position, output, state)
         Piece.WHITE_KING + offset,
         AttackTables.king_lo,
         AttackTables.king_hi,
+        target_mask_lo,
+        target_mask_hi,
         state,
         true
     )
