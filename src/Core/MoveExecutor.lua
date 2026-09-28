@@ -3,7 +3,6 @@ local _, addon = ...
 local Internal = assert(addon.JustChessInternal, "JustChess bootstrap must load first")
 local CastlingRights = assert(Internal.CastlingRights, "JustChess constants must load first")
 local Color = assert(Internal.Color, "JustChess constants must load first")
-local Move = assert(Internal.Move, "JustChess move must load first")
 local Piece = assert(Internal.Piece, "JustChess constants must load first")
 local PieceKind = assert(Internal.PieceKind, "JustChess constants must load first")
 local Position = assert(Internal.Position, "JustChess position must load first")
@@ -12,6 +11,7 @@ local SpecialMove = assert(Internal.SpecialMove, "JustChess constants must load 
 local Square = assert(Internal.Square, "JustChess constants must load first")
 local band = bit.band
 local bnot = bit.bnot
+local floor = math.floor
 
 local MoveExecutor = {}
 
@@ -104,13 +104,13 @@ function MoveExecutor.make(executor, position, move)
     record.fullmove_number = position.fullmove_number
     executor.count = next_index
 
-    local from = Move.from_square(move)
-    local to = Move.to_square(move)
-    local promotion = Move.promotion(move)
-    local piece = Move.piece(move)
-    local captured = Move.captured_piece(move)
+    local from = move % 64 + 1
+    local to = floor(move / 64) % 64 + 1
+    local promotion = floor(move / 4096) % 16
+    local piece = floor(move / 65536) % 16
+    local captured = floor(move / 1048576) % 16
     local is_capture = captured ~= Piece.NONE
-    local special = Move.special_type(move)
+    local special = floor(move / 16777216) % 8
     local color = Internal.piece_color[piece]
 
     position.en_passant_target = nil
@@ -160,13 +160,13 @@ function MoveExecutor.undo(executor, position)
     local move = record.move
     executor.count = executor.count - 1
 
-    local from = Move.from_square(move)
-    local to = Move.to_square(move)
-    local promotion = Move.promotion(move)
-    local piece = Move.piece(move)
-    local captured = Move.captured_piece(move)
+    local from = move % 64 + 1
+    local to = floor(move / 64) % 64 + 1
+    local promotion = floor(move / 4096) % 16
+    local piece = floor(move / 65536) % 16
+    local captured = floor(move / 1048576) % 16
     local is_capture = captured ~= Piece.NONE
-    local special = Move.special_type(move)
+    local special = floor(move / 16777216) % 8
     local color = Internal.piece_color[piece]
 
     if special == SpecialMove.SHORT_CASTLE or special == SpecialMove.LONG_CASTLE then

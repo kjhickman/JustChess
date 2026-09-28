@@ -56,53 +56,80 @@ local function special_type(move)
 end
 
 function PackedMove.quiet(from, to, moving_piece)
-    return pack(from, to, Promotion.NONE, moving_piece, Piece.NONE, SpecialMove.NONE)
+    return (from - 1) + (to - 1) * TO_FACTOR + moving_piece * PIECE_FACTOR
 end
 
 function PackedMove.capture(from, to, moving_piece, captured)
-    return pack(from, to, Promotion.NONE, moving_piece, captured, SpecialMove.NONE)
+    return (from - 1) + (to - 1) * TO_FACTOR + moving_piece * PIECE_FACTOR + captured * CAPTURED_FACTOR
 end
 
 function PackedMove.promote(from, to, moving_piece, promoted)
-    return pack(from, to, promoted, moving_piece, Piece.NONE, SpecialMove.NONE)
+    return (from - 1) + (to - 1) * TO_FACTOR + promoted * PROMOTION_FACTOR + moving_piece * PIECE_FACTOR
 end
 
 function PackedMove.promote_capture(from, to, moving_piece, captured, promoted)
-    return pack(from, to, promoted, moving_piece, captured, SpecialMove.NONE)
+    return (from - 1)
+        + (to - 1) * TO_FACTOR
+        + promoted * PROMOTION_FACTOR
+        + moving_piece * PIECE_FACTOR
+        + captured * CAPTURED_FACTOR
 end
 
 function PackedMove.en_passant(from, to, color)
     if color == Color.WHITE then
-        return pack(from, to, Promotion.NONE, Piece.WHITE_PAWN, Piece.BLACK_PAWN, SpecialMove.EN_PASSANT)
+        return (from - 1)
+            + (to - 1) * TO_FACTOR
+            + Piece.WHITE_PAWN * PIECE_FACTOR
+            + Piece.BLACK_PAWN * CAPTURED_FACTOR
+            + SpecialMove.EN_PASSANT * SPECIAL_FACTOR
     end
     if color == Color.BLACK then
-        return pack(from, to, Promotion.NONE, Piece.BLACK_PAWN, Piece.WHITE_PAWN, SpecialMove.EN_PASSANT)
+        return (from - 1)
+            + (to - 1) * TO_FACTOR
+            + Piece.BLACK_PAWN * PIECE_FACTOR
+            + Piece.WHITE_PAWN * CAPTURED_FACTOR
+            + SpecialMove.EN_PASSANT * SPECIAL_FACTOR
     end
     error("invalid color", 2)
 end
 
 function PackedMove.short_castle(color)
     if color == Color.WHITE then
-        return pack(Square.E1, Square.G1, Promotion.NONE, Piece.WHITE_KING, Piece.NONE, SpecialMove.SHORT_CASTLE)
+        return (Square.E1 - 1)
+            + (Square.G1 - 1) * TO_FACTOR
+            + Piece.WHITE_KING * PIECE_FACTOR
+            + SpecialMove.SHORT_CASTLE * SPECIAL_FACTOR
     end
     if color == Color.BLACK then
-        return pack(Square.E8, Square.G8, Promotion.NONE, Piece.BLACK_KING, Piece.NONE, SpecialMove.SHORT_CASTLE)
+        return (Square.E8 - 1)
+            + (Square.G8 - 1) * TO_FACTOR
+            + Piece.BLACK_KING * PIECE_FACTOR
+            + SpecialMove.SHORT_CASTLE * SPECIAL_FACTOR
     end
     error("invalid color", 2)
 end
 
 function PackedMove.long_castle(color)
     if color == Color.WHITE then
-        return pack(Square.E1, Square.C1, Promotion.NONE, Piece.WHITE_KING, Piece.NONE, SpecialMove.LONG_CASTLE)
+        return (Square.E1 - 1)
+            + (Square.C1 - 1) * TO_FACTOR
+            + Piece.WHITE_KING * PIECE_FACTOR
+            + SpecialMove.LONG_CASTLE * SPECIAL_FACTOR
     end
     if color == Color.BLACK then
-        return pack(Square.E8, Square.C8, Promotion.NONE, Piece.BLACK_KING, Piece.NONE, SpecialMove.LONG_CASTLE)
+        return (Square.E8 - 1)
+            + (Square.C8 - 1) * TO_FACTOR
+            + Piece.BLACK_KING * PIECE_FACTOR
+            + SpecialMove.LONG_CASTLE * SPECIAL_FACTOR
     end
     error("invalid color", 2)
 end
 
 function PackedMove.double_pawn_push(from, to, moving_piece)
-    return pack(from, to, Promotion.NONE, moving_piece, Piece.NONE, SpecialMove.DOUBLE_PAWN_PUSH)
+    return (from - 1)
+        + (to - 1) * TO_FACTOR
+        + moving_piece * PIECE_FACTOR
+        + SpecialMove.DOUBLE_PAWN_PUSH * SPECIAL_FACTOR
 end
 
 PublicMove.to_square = to_square
