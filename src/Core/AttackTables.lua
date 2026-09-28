@@ -19,6 +19,8 @@ local AttackTables = {
         [Color.WHITE] = {},
         [Color.BLACK] = {},
     },
+    ray_lo = {},
+    ray_hi = {},
     rays = {},
 }
 
@@ -91,18 +93,28 @@ for square = 1, 64 do
     AttackTables.pawn_lo[Color.BLACK][square] = black_pawn_lo
     AttackTables.pawn_hi[Color.BLACK][square] = black_pawn_hi
 
+    local ray_lo = {}
+    local ray_hi = {}
     local rays = {}
+    AttackTables.ray_lo[square] = ray_lo
+    AttackTables.ray_hi[square] = ray_hi
     AttackTables.rays[square] = rays
     for direction = 1, 8 do
         local ray = {}
+        local lo = 0
+        local hi = 0
         rays[direction] = ray
         local file = origin_file + direction_file[direction]
         local rank = origin_rank + direction_rank[direction]
         while file >= 0 and file < 8 and rank >= 0 and rank < 8 do
-            ray[#ray + 1] = rank * 8 + file + 1
+            local target = rank * 8 + file + 1
+            ray[#ray + 1] = target
+            lo, hi = add_square(lo, hi, target)
             file = file + direction_file[direction]
             rank = rank + direction_rank[direction]
         end
+        ray_lo[direction] = lo
+        ray_hi[direction] = hi
     end
 end
 

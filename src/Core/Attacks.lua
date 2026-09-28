@@ -10,31 +10,62 @@ local PieceKind = assert(JustChess.PieceKind, "JustChess constants must load fir
 local band = bit.band
 local bnot = bit.bnot
 local bor = bit.bor
+local frexp = math.frexp
 
 local Attacks = {}
 local mask_lo = Bitboard.square_mask_lo
 local mask_hi = Bitboard.square_mask_hi
-local rays = AttackTables.rays
+local lsb_index = Bitboard.lsb_index
+local ray_lo = AttackTables.ray_lo
+local ray_hi = AttackTables.ray_hi
+local direction_increases = { true, true, false, false, true, true, false, false }
 
-local function contains_words(lo, hi, square)
-    return band(lo, mask_lo[square]) ~= 0 or band(hi, mask_hi[square]) ~= 0
+local function msb_index(word)
+    if word < 0 then
+        return 31
+    end
+
+    local _, exponent = frexp(word)
+    return exponent - 1
+end
+
+local function first_blocker(blockers_lo, blockers_hi, increasing)
+    if increasing then
+        if blockers_lo ~= 0 then
+            return lsb_index[band(blockers_lo, -blockers_lo)] + 1
+        elseif blockers_hi ~= 0 then
+            return lsb_index[band(blockers_hi, -blockers_hi)] + 33
+        end
+    elseif blockers_hi ~= 0 then
+        return msb_index(blockers_hi) + 33
+    elseif blockers_lo ~= 0 then
+        return msb_index(blockers_lo) + 1
+    end
 end
 
 local function slider_words(square, occupied_lo, occupied_hi, first_direction, last_direction)
     local attacks_lo = 0
     local attacks_hi = 0
-    local square_rays = rays[square]
+    local square_ray_lo = ray_lo[square]
+    local square_ray_hi = ray_hi[square]
 
     for direction = first_direction, last_direction do
-        local ray = square_rays[direction]
-        for index = 1, #ray do
-            local target = ray[index]
-            attacks_lo = bor(attacks_lo, mask_lo[target])
-            attacks_hi = bor(attacks_hi, mask_hi[target])
-            if contains_words(occupied_lo, occupied_hi, target) then
-                break
-            end
+        local direction_lo = square_ray_lo[direction]
+        local direction_hi = square_ray_hi[direction]
+        local blockers_lo = band(occupied_lo, direction_lo)
+        local blockers_hi = band(occupied_hi, direction_hi)
+        local blocker
+        if blockers_lo ~= 0 or blockers_hi ~= 0 then
+            blocker = first_blocker(blockers_lo, blockers_hi, direction_increases[direction])
         end
+
+        if blocker ~= nil then
+            direction_lo = band(direction_lo, bnot(ray_lo[blocker][direction]))
+            direction_hi = band(direction_hi, bnot(ray_hi[blocker][direction]))
+        end
+
+        attacks_lo = bor(attacks_lo, direction_lo)
+        attacks_hi = bor(attacks_hi, direction_hi)
     end
 
     return attacks_lo, attacks_hi
@@ -103,26 +134,27 @@ function Attacks.is_square_attacked(position, square, by_color, occupied_lo, occ
         return true
     end
 
-    local square_rays = rays[square]
+    local square_ray_lo = ray_lo[square]
+    local square_ray_hi = ray_hi[square]
     for direction = 1, 8 do
-        local ray = square_rays[direction]
-        for index = 1, #ray do
-            local target = ray[index]
-            if contains_words(occupied_lo, occupied_hi, target) then
-                local piece = position.board[target]
-                if piece ~= nil and target ~= ignored_square and Internal.piece_color[piece] == by_color then
-                    local kind = Internal.piece_kind[piece]
-                    if kind == PieceKind.QUEEN then
-                        return true
-                    end
-                    if direction <= 4 and kind == PieceKind.ROOK then
-                        return true
-                    end
-                    if direction >= 5 and kind == PieceKind.BISHOP then
-                        return true
-                    end
+        local blockers_lo = band(occupied_lo, square_ray_lo[direction])
+        local blockers_hi = band(occupied_hi, square_ray_hi[direction])
+        local target
+        if blockers_lo ~= 0 or blockers_hi ~= 0 then
+            target = first_blocker(blockers_lo, blockers_hi, direction_increases[direction])
+        end
+
+        if target ~= nil and target ~= ignored_square then
+            local piece = position.board[target]
+            if Internal.piece_color[piece] == by_color then
+                local kind = Internal.piece_kind[piece]
+                if
+                    kind == PieceKind.QUEEN
+                    or (direction <= 4 and kind == PieceKind.ROOK)
+                    or (direction >= 5 and kind == PieceKind.BISHOP)
+                then
+                    return true
                 end
-                break
             end
         end
     end
