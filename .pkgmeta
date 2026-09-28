@@ -1,1 +1,9 @@
 package-as: JustChess
+
+ignore:
+  - Makefile
+  - README.md
+  - opencode.json
+  - selene.toml
+  - spec
+  - wow.yml
