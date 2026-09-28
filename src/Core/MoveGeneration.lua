@@ -25,17 +25,44 @@ local mask_lo = Bitboard.square_mask_lo
 local mask_hi = Bitboard.square_mask_hi
 local lsb_index = Bitboard.lsb_index
 
-local function append_target_moves(output, count, position, color, from, moving_piece, targets_lo, targets_hi)
+local ordinary_move_is_legal
+local king_move_is_safe
+local en_passant_is_safe
+local castle_is_safe
+
+local function append_target_moves(
+    output,
+    count,
+    position,
+    color,
+    from,
+    moving_piece,
+    targets_lo,
+    targets_hi,
+    state,
+    king_moves
+)
+    local pinned = state ~= nil and not king_moves and Bitboard.contains(state.pinned, from)
+
     while targets_lo ~= 0 do
         local isolated = band(targets_lo, -targets_lo)
         local to = lsb_index[isolated] + 1
         local captured = position.board[to]
-        if captured == nil then
-            count = count + 1
-            output[count] = Move.quiet(from, to, moving_piece)
-        elseif Internal.piece_color[captured] ~= color and Internal.piece_kind[captured] ~= PieceKind.KING then
-            count = count + 1
-            output[count] = Move.capture(from, to, moving_piece, captured)
+        if
+            captured == nil
+            or (Internal.piece_color[captured] ~= color and Internal.piece_kind[captured] ~= PieceKind.KING)
+        then
+            local legal = state == nil
+                or (king_moves and king_move_is_safe(position, color, from, to))
+                or (not king_moves and ordinary_move_is_legal(state, pinned, from, to))
+            if legal then
+                count = count + 1
+                if captured == nil then
+                    output[count] = Move.quiet(from, to, moving_piece)
+                else
+                    output[count] = Move.capture(from, to, moving_piece, captured)
+                end
+            end
         end
         targets_lo = band(targets_lo, targets_lo - 1)
     end
@@ -44,12 +71,21 @@ local function append_target_moves(output, count, position, color, from, moving_
         local isolated = band(targets_hi, -targets_hi)
         local to = lsb_index[isolated] + 33
         local captured = position.board[to]
-        if captured == nil then
-            count = count + 1
-            output[count] = Move.quiet(from, to, moving_piece)
-        elseif Internal.piece_color[captured] ~= color and Internal.piece_kind[captured] ~= PieceKind.KING then
-            count = count + 1
-            output[count] = Move.capture(from, to, moving_piece, captured)
+        if
+            captured == nil
+            or (Internal.piece_color[captured] ~= color and Internal.piece_kind[captured] ~= PieceKind.KING)
+        then
+            local legal = state == nil
+                or (king_moves and king_move_is_safe(position, color, from, to))
+                or (not king_moves and ordinary_move_is_legal(state, pinned, from, to))
+            if legal then
+                count = count + 1
+                if captured == nil then
+                    output[count] = Move.quiet(from, to, moving_piece)
+                else
+                    output[count] = Move.capture(from, to, moving_piece, captured)
+                end
+            end
         end
         targets_hi = band(targets_hi, targets_hi - 1)
     end
@@ -72,25 +108,33 @@ local function append_promotions(output, count, from, to, piece, captured)
     return count + 4
 end
 
-local function append_pawn(position, output, count, color, piece, from)
+local function append_pawn(position, output, count, color, piece, from, state)
     local direction = color == Color.WHITE and 8 or -8
     local promotion_rank = color == Color.WHITE and 8 or 1
     local starting_rank = color == Color.WHITE and 2 or 7
     local from_rank = floor((from - 1) / 8) + 1
     local from_file = (from - 1) % 8 + 1
     local one_step = from + direction
+    local pinned = state ~= nil and Bitboard.contains(state.pinned, from)
 
     if one_step >= 1 and one_step <= 64 and position.board[one_step] == nil then
         local target_rank = floor((one_step - 1) / 8) + 1
         if target_rank == promotion_rank then
-            count = append_promotions(output, count, from, one_step, piece, nil)
+            if state == nil or ordinary_move_is_legal(state, pinned, from, one_step) then
+                count = append_promotions(output, count, from, one_step, piece, nil)
+            end
         else
-            count = count + 1
-            output[count] = Move.quiet(from, one_step, piece)
+            if state == nil or ordinary_move_is_legal(state, pinned, from, one_step) then
+                count = count + 1
+                output[count] = Move.quiet(from, one_step, piece)
+            end
 
             if from_rank == starting_rank then
                 local two_steps = from + direction * 2
-                if position.board[two_steps] == nil then
+                if
+                    position.board[two_steps] == nil
+                    and (state == nil or ordinary_move_is_legal(state, pinned, from, two_steps))
+                then
                     count = count + 1
                     output[count] = Move.double_pawn_push(from, two_steps, piece)
                 end
@@ -109,16 +153,21 @@ local function append_pawn(position, output, count, color, piece, from)
                 and Internal.piece_color[captured] ~= color
                 and Internal.piece_kind[captured] ~= PieceKind.KING
             then
-                local target_rank = floor((to - 1) / 8) + 1
-                if target_rank == promotion_rank then
-                    count = append_promotions(output, count, from, to, piece, captured)
-                else
-                    count = count + 1
-                    output[count] = Move.capture(from, to, piece, captured)
+                if state == nil or ordinary_move_is_legal(state, pinned, from, to) then
+                    local target_rank = floor((to - 1) / 8) + 1
+                    if target_rank == promotion_rank then
+                        count = append_promotions(output, count, from, to, piece, captured)
+                    else
+                        count = count + 1
+                        output[count] = Move.capture(from, to, piece, captured)
+                    end
                 end
             elseif position.en_passant_target == to then
                 local captured_square = color == Color.WHITE and to - 8 or to + 8
-                if position.board[captured_square] == enemy_pawn then
+                if
+                    position.board[captured_square] == enemy_pawn
+                    and (state == nil or en_passant_is_safe(position, color, from, to))
+                then
                     count = count + 1
                     output[count] = Move.en_passant(from, to, color)
                 end
@@ -129,7 +178,7 @@ local function append_pawn(position, output, count, color, piece, from)
     return count
 end
 
-local function append_pawn_moves(position, output, count, color)
+local function append_pawn_moves(position, output, count, color, state)
     local piece = color == Color.WHITE and Piece.WHITE_PAWN or Piece.BLACK_PAWN
     local pawns = position.pieces[piece]
     local pawns_lo = pawns.lo
@@ -137,19 +186,19 @@ local function append_pawn_moves(position, output, count, color)
 
     while pawns_lo ~= 0 do
         local isolated = band(pawns_lo, -pawns_lo)
-        count = append_pawn(position, output, count, color, piece, lsb_index[isolated] + 1)
+        count = append_pawn(position, output, count, color, piece, lsb_index[isolated] + 1, state)
         pawns_lo = band(pawns_lo, pawns_lo - 1)
     end
     while pawns_hi ~= 0 do
         local isolated = band(pawns_hi, -pawns_hi)
-        count = append_pawn(position, output, count, color, piece, lsb_index[isolated] + 33)
+        count = append_pawn(position, output, count, color, piece, lsb_index[isolated] + 33, state)
         pawns_hi = band(pawns_hi, pawns_hi - 1)
     end
 
     return count
 end
 
-local function append_leaper_moves(position, output, count, color, piece, attacks_lo, attacks_hi)
+local function append_leaper_moves(position, output, count, color, piece, attacks_lo, attacks_hi, state, king_moves)
     local pieces = position.pieces[piece]
     local pieces_lo = pieces.lo
     local pieces_hi = pieces.hi
@@ -157,20 +206,42 @@ local function append_leaper_moves(position, output, count, color, piece, attack
     while pieces_lo ~= 0 do
         local isolated = band(pieces_lo, -pieces_lo)
         local from = lsb_index[isolated] + 1
-        count = append_target_moves(output, count, position, color, from, piece, attacks_lo[from], attacks_hi[from])
+        count = append_target_moves(
+            output,
+            count,
+            position,
+            color,
+            from,
+            piece,
+            attacks_lo[from],
+            attacks_hi[from],
+            state,
+            king_moves
+        )
         pieces_lo = band(pieces_lo, pieces_lo - 1)
     end
     while pieces_hi ~= 0 do
         local isolated = band(pieces_hi, -pieces_hi)
         local from = lsb_index[isolated] + 33
-        count = append_target_moves(output, count, position, color, from, piece, attacks_lo[from], attacks_hi[from])
+        count = append_target_moves(
+            output,
+            count,
+            position,
+            color,
+            from,
+            piece,
+            attacks_lo[from],
+            attacks_hi[from],
+            state,
+            king_moves
+        )
         pieces_hi = band(pieces_hi, pieces_hi - 1)
     end
 
     return count
 end
 
-local function append_slider_moves(position, output, count, color, piece, attack_function)
+local function append_slider_moves(position, output, count, color, piece, attack_function, state)
     local pieces = position.pieces[piece]
     local pieces_lo = pieces.lo
     local pieces_hi = pieces.hi
@@ -181,21 +252,25 @@ local function append_slider_moves(position, output, count, color, piece, attack
         local isolated = band(pieces_lo, -pieces_lo)
         local from = lsb_index[isolated] + 1
         local targets_lo, targets_hi = attack_function(from, occupied_lo, occupied_hi)
-        count = append_target_moves(output, count, position, color, from, piece, targets_lo, targets_hi)
+        count = append_target_moves(output, count, position, color, from, piece, targets_lo, targets_hi, state, false)
         pieces_lo = band(pieces_lo, pieces_lo - 1)
     end
     while pieces_hi ~= 0 do
         local isolated = band(pieces_hi, -pieces_hi)
         local from = lsb_index[isolated] + 33
         local targets_lo, targets_hi = attack_function(from, occupied_lo, occupied_hi)
-        count = append_target_moves(output, count, position, color, from, piece, targets_lo, targets_hi)
+        count = append_target_moves(output, count, position, color, from, piece, targets_lo, targets_hi, state, false)
         pieces_hi = band(pieces_hi, pieces_hi - 1)
     end
 
     return count
 end
 
-local function append_castles(position, output, count, color)
+local function append_castles(position, output, count, color, state)
+    if state ~= nil and state.check_count ~= 0 then
+        return count
+    end
+
     local rights = position.castling_rights
     local board = position.board
     if color == Color.WHITE and board[Square.E1] == Piece.WHITE_KING then
@@ -204,6 +279,7 @@ local function append_castles(position, output, count, color)
             and board[Square.H1] == Piece.WHITE_ROOK
             and board[Square.F1] == nil
             and board[Square.G1] == nil
+            and (state == nil or castle_is_safe(position, color, SpecialMove.SHORT_CASTLE))
         then
             count = count + 1
             output[count] = Move.short_castle(color)
@@ -214,6 +290,7 @@ local function append_castles(position, output, count, color)
             and board[Square.B1] == nil
             and board[Square.C1] == nil
             and board[Square.D1] == nil
+            and (state == nil or castle_is_safe(position, color, SpecialMove.LONG_CASTLE))
         then
             count = count + 1
             output[count] = Move.long_castle(color)
@@ -224,6 +301,7 @@ local function append_castles(position, output, count, color)
             and board[Square.H8] == Piece.BLACK_ROOK
             and board[Square.F8] == nil
             and board[Square.G8] == nil
+            and (state == nil or castle_is_safe(position, color, SpecialMove.SHORT_CASTLE))
         then
             count = count + 1
             output[count] = Move.short_castle(color)
@@ -234,6 +312,7 @@ local function append_castles(position, output, count, color)
             and board[Square.B8] == nil
             and board[Square.C8] == nil
             and board[Square.D8] == nil
+            and (state == nil or castle_is_safe(position, color, SpecialMove.LONG_CASTLE))
         then
             count = count + 1
             output[count] = Move.long_castle(color)
@@ -242,23 +321,37 @@ local function append_castles(position, output, count, color)
     return count
 end
 
-function MoveGeneration.write_pseudo_legal_moves(position, output)
+local function write_moves(position, output, state)
     local color = position.side_to_move
     local offset = color == Color.WHITE and 0 or 6
     local count = 0
-    count = append_pawn_moves(position, output, count, color)
-    count = append_leaper_moves(
-        position,
-        output,
-        count,
-        color,
-        Piece.WHITE_KNIGHT + offset,
-        AttackTables.knight_lo,
-        AttackTables.knight_hi
-    )
-    count = append_slider_moves(position, output, count, color, Piece.WHITE_BISHOP + offset, Attacks.bishop_words)
-    count = append_slider_moves(position, output, count, color, Piece.WHITE_ROOK + offset, Attacks.rook_words)
-    count = append_slider_moves(position, output, count, color, Piece.WHITE_QUEEN + offset, Attacks.queen_words)
+    if state == nil or state.check_count < 2 then
+        count = append_pawn_moves(position, output, count, color, state)
+        count = append_leaper_moves(
+            position,
+            output,
+            count,
+            color,
+            Piece.WHITE_KNIGHT + offset,
+            AttackTables.knight_lo,
+            AttackTables.knight_hi,
+            state,
+            false
+        )
+        count = append_slider_moves(
+            position,
+            output,
+            count,
+            color,
+            Piece.WHITE_BISHOP + offset,
+            Attacks.bishop_words,
+            state
+        )
+        count =
+            append_slider_moves(position, output, count, color, Piece.WHITE_ROOK + offset, Attacks.rook_words, state)
+        count =
+            append_slider_moves(position, output, count, color, Piece.WHITE_QUEEN + offset, Attacks.queen_words, state)
+    end
     count = append_leaper_moves(
         position,
         output,
@@ -266,9 +359,15 @@ function MoveGeneration.write_pseudo_legal_moves(position, output)
         color,
         Piece.WHITE_KING + offset,
         AttackTables.king_lo,
-        AttackTables.king_hi
+        AttackTables.king_hi,
+        state,
+        true
     )
-    return append_castles(position, output, count, color)
+    return append_castles(position, output, count, color, state)
+end
+
+function MoveGeneration.write_pseudo_legal_moves(position, output)
+    return write_moves(position, output, nil)
 end
 
 local function set_square_words(board, square)
@@ -333,10 +432,8 @@ local function analyze(position, state)
 
     state.king_square = king_square
     state.check_count = Bitboard.count(checkers)
-    state.checker_square = nil
     if state.check_count == 1 then
         local checker_square = Bitboard.first_square(checkers)
-        state.checker_square = checker_square
         set_square_words(state.evasion, checker_square)
 
         local checker = position.board[checker_square]
@@ -385,6 +482,11 @@ local function is_along_pin(king_square, from, to)
         and to_rank_delta * from_rank_delta >= 0
 end
 
+ordinary_move_is_legal = function(state, pinned, from, to)
+    return (state.check_count == 0 or Bitboard.contains(state.evasion, to))
+        and (not pinned or is_along_pin(state.king_square, from, to))
+end
+
 local function clear_square(lo, hi, square)
     return band(lo, bnot(mask_lo[square])), band(hi, bnot(mask_hi[square]))
 end
@@ -393,14 +495,14 @@ local function add_square(lo, hi, square)
     return bor(lo, mask_lo[square]), bor(hi, mask_hi[square])
 end
 
-local function king_move_is_safe(position, color, from, to)
+king_move_is_safe = function(position, color, from, to)
     local occupied_lo, occupied_hi = clear_square(position.occupied.lo, position.occupied.hi, from)
     occupied_lo, occupied_hi = add_square(occupied_lo, occupied_hi, to)
     local ignored = position.board[to] ~= nil and to or nil
     return not Attacks.is_square_attacked(position, to, Color.opposite(color), occupied_lo, occupied_hi, ignored)
 end
 
-local function en_passant_is_safe(position, color, from, to)
+en_passant_is_safe = function(position, color, from, to)
     local captured_square = color == Color.WHITE and to - 8 or to + 8
     local occupied_lo, occupied_hi = clear_square(position.occupied.lo, position.occupied.hi, from)
     occupied_lo, occupied_hi = clear_square(occupied_lo, occupied_hi, captured_square)
@@ -415,7 +517,7 @@ local function en_passant_is_safe(position, color, from, to)
     )
 end
 
-local function castle_is_safe(position, color, special)
+castle_is_safe = function(position, color, special)
     local king_from
     local transit
     local king_to
@@ -452,13 +554,11 @@ end
 
 function MoveGeneration.new_context()
     return {
-        pseudo = {},
         state = {
             checkers = Bitboard.new(),
             pinned = Bitboard.new(),
             evasion = Bitboard.new(),
             king_square = nil,
-            checker_square = nil,
             check_count = 0,
         },
     }
@@ -468,40 +568,7 @@ function MoveGeneration.write_legal_moves(position, output, context)
     context = context or MoveGeneration.new_context()
     local state = context.state
     analyze(position, state)
-    local pseudo_count = MoveGeneration.write_pseudo_legal_moves(position, context.pseudo)
-    local color = position.side_to_move
-    local count = 0
-
-    for index = 1, pseudo_count do
-        local move = context.pseudo[index]
-        local from = Move.from_square(move)
-        local to = Move.to_square(move)
-        local piece = Move.piece(move)
-        local kind = Internal.piece_kind[piece]
-        local special = Move.special_type(move)
-        local legal = false
-
-        if kind == PieceKind.KING then
-            if special == SpecialMove.SHORT_CASTLE or special == SpecialMove.LONG_CASTLE then
-                legal = state.check_count == 0 and castle_is_safe(position, color, special)
-            else
-                legal = king_move_is_safe(position, color, from, to)
-            end
-        elseif state.check_count < 2 then
-            if special == SpecialMove.EN_PASSANT then
-                legal = en_passant_is_safe(position, color, from, to)
-            elseif state.check_count == 0 or Bitboard.contains(state.evasion, to) then
-                legal = not Bitboard.contains(state.pinned, from) or is_along_pin(state.king_square, from, to)
-            end
-        end
-
-        if legal then
-            count = count + 1
-            output[count] = move
-        end
-    end
-
-    return count
+    return write_moves(position, output, state)
 end
 
 Internal.MoveGeneration = MoveGeneration
