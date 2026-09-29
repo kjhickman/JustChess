@@ -4,12 +4,12 @@ local function visit(runner, position, remaining)
     if remaining == 0 then
         return 1
     end
+    if remaining == 1 then
+        return runner.Internal.MoveGeneration.write_legal_moves(position, nil, runner.contexts[remaining])
+    end
 
     local moves = runner.buffers[remaining]
     local count = runner.Internal.MoveGeneration.write_legal_moves(position, moves, runner.contexts[remaining])
-    if remaining == 1 then
-        return count
-    end
 
     local nodes = 0
     for index = 1, count do
